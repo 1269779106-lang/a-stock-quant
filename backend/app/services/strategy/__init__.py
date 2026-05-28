@@ -3,12 +3,18 @@ from app.services.strategy.base_strategy import BaseStrategy, Signal, TradeOrder
 from app.services.strategy.dual_ma_strategy import DualMAStrategy
 from app.services.strategy.rsi_strategy import RSIStrategy
 from app.services.strategy.bollinger_strategy import BollingerStrategy
+from app.services.strategy.macd_strategy import MACDStrategy
+from app.services.strategy.momentum_strategy import MomentumBreakoutStrategy
+from app.services.strategy.ma_alignment_strategy import MAAlignmentStrategy
 
 # 策略注册表
 STRATEGY_REGISTRY = {
     "dual_ma": DualMAStrategy,
     "rsi": RSIStrategy,
     "bollinger": BollingerStrategy,
+    "macd": MACDStrategy,
+    "momentum": MomentumBreakoutStrategy,
+    "ma_alignment": MAAlignmentStrategy,
 }
 
 

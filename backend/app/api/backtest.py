@@ -17,7 +17,9 @@ async def run_backtest(
     end_date: str = Query(..., description="结束日期 YYYY-MM-DD"),
     initial_capital: float = Query(1000000, description="初始资金"),
     commission: float = Query(0.0003, description="手续费率"),
-    slippage: float = Query(0.001, description="滑点")
+    slippage: float = Query(0.001, description="滑点"),
+    stop_loss: float = Query(0.0, description="止损比例 (0表示不止损)"),
+    take_profit: float = Query(0.0, description="止盈比例 (0表示不止盈)")
 ):
     """运行回测"""
     # 验证策略
@@ -34,7 +36,9 @@ async def run_backtest(
     engine = BacktestEngine(
         initial_capital=initial_capital,
         commission=commission,
-        slippage=slippage
+        slippage=slippage,
+        stop_loss=stop_loss,
+        take_profit=take_profit
     )
 
     # 运行回测

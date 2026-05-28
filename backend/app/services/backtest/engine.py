@@ -44,7 +44,9 @@ class BacktestEngine:
         initial_capital: float = 1000000,
         commission: float = 0.0003,
         slippage: float = 0.001,
-        stamp_tax: float = 0.001
+        stamp_tax: float = 0.001,
+        stop_loss: float = 0.0,
+        take_profit: float = 0.0
     ):
         """
         初始化回测引擎
@@ -54,13 +56,17 @@ class BacktestEngine:
             commission: 手续费率
             slippage: 滑点
             stamp_tax: 印花税 (卖出时收取)
+            stop_loss: 止损比例 (0表示不止损)
+            take_profit: 止盈比例 (0表示不止盈)
         """
         self.initial_capital = initial_capital
         self.commission = commission
         self.slippage = slippage
         self.stamp_tax = stamp_tax
+        self.stop_loss = stop_loss
+        self.take_profit = take_profit
 
-        logger.info(f"初始化回测引擎: 初始资金={initial_capital}, 手续费={commission}, 滑点={slippage}")
+        logger.info(f"初始化回测引擎: 初始资金={initial_capital}, 手续费={commission}, 滑点={slippage}, 止损={stop_loss}, 止盈={take_profit}")
 
     def run(self, strategy: BaseStrategy, df: pd.DataFrame) -> BacktestResult:
         """
@@ -143,6 +149,60 @@ class BacktestEngine:
 
                 position = 0
                 position_price = 0
+
+            # 止损检查
+            elif position > 0 and self.stop_loss > 0:
+                loss_pct = (price - position_price) / position_price
+                if loss_pct <= -self.stop_loss:
+                    # 触发止损
+                    actual_price = price * (1 - self.slippage)
+                    revenue = position * actual_price
+                    commission_fee = revenue * self.commission
+                    stamp_tax_fee = revenue * self.stamp_tax
+                    net_revenue = revenue - commission_fee - stamp_tax_fee
+
+                    capital += net_revenue
+
+                    trades.append({
+                        "type": "STOP_LOSS",
+                        "date": str(date),
+                        "price": actual_price,
+                        "shares": position,
+                        "revenue": net_revenue,
+                        "commission": commission_fee,
+                        "stamp_tax": stamp_tax_fee,
+                        "profit": net_revenue - position * position_price
+                    })
+
+                    position = 0
+                    position_price = 0
+
+            # 止盈检查
+            elif position > 0 and self.take_profit > 0:
+                profit_pct = (price - position_price) / position_price
+                if profit_pct >= self.take_profit:
+                    # 触发止盈
+                    actual_price = price * (1 - self.slippage)
+                    revenue = position * actual_price
+                    commission_fee = revenue * self.commission
+                    stamp_tax_fee = revenue * self.stamp_tax
+                    net_revenue = revenue - commission_fee - stamp_tax_fee
+
+                    capital += net_revenue
+
+                    trades.append({
+                        "type": "TAKE_PROFIT",
+                        "date": str(date),
+                        "price": actual_price,
+                        "shares": position,
+                        "revenue": net_revenue,
+                        "commission": commission_fee,
+                        "stamp_tax": stamp_tax_fee,
+                        "profit": net_revenue - position * position_price
+                    })
+
+                    position = 0
+                    position_price = 0
 
             # 记录权益
             total_equity = capital + position * price

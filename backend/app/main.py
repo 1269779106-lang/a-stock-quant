@@ -70,9 +70,10 @@ async def health_check():
 
 
 # 导入API路由 (延迟导入)
-from app.api import market, strategy, backtest, websocket
+from app.api import market, strategy, backtest, websocket, analysis
 
 app.include_router(market.router, prefix=settings.API_V1_PREFIX, tags=["行情数据"])
 app.include_router(strategy.router, prefix=settings.API_V1_PREFIX, tags=["策略管理"])
 app.include_router(backtest.router, prefix=settings.API_V1_PREFIX, tags=["回测系统"])
+app.include_router(analysis.router, prefix=settings.API_V1_PREFIX, tags=["分析系统"])
 app.include_router(websocket.router, tags=["WebSocket实时数据"])
