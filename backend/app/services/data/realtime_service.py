@@ -2,13 +2,10 @@
 import asyncio
 import json
 import os
+import requests as http_requests
 from typing import Dict, List, Set
 from datetime import datetime
 from loguru import logger
-
-# 禁用代理
-for key in ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']:
-    os.environ.pop(key, None)
 
 import akshare as ak
 import pandas as pd
@@ -60,10 +57,6 @@ class RealtimeDataService:
     def get_realtime_data(self, stock_code: str) -> dict:
         """获取实时数据（使用最新K线）"""
         try:
-            # 禁用代理
-            for key in ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']:
-                os.environ.pop(key, None)
-
             # 获取最新K线数据
             df = ak.stock_zh_a_hist(
                 symbol=stock_code,

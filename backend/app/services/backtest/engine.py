@@ -8,6 +8,11 @@ from loguru import logger
 
 from app.services.strategy.base_strategy import BaseStrategy, Signal
 
+# 常量定义
+CASH_RESERVE_RATIO = 0.95  # 保留5%现金
+RISK_FREE_RATE = 0.03  # 无风险利率3%
+TRADING_DAYS_PER_YEAR = 252  # 每年交易日
+
 
 @dataclass
 class BacktestResult:
@@ -90,7 +95,7 @@ class BacktestEngine:
             # 买入信号
             if signal == Signal.BUY.value and position == 0:
                 # 计算可买数量
-                available_capital = capital * 0.95  # 保留5%现金
+                available_capital = capital * CASH_RESERVE_RATIO
                 shares = int(available_capital / price / 100) * 100
 
                 if shares >= 100:
@@ -183,17 +188,17 @@ class BacktestEngine:
 
         # 年化收益率
         days = len(equity_df)
-        annual_return = (1 + total_return) ** (252 / days) - 1 if days > 0 else 0
+        annual_return = (1 + total_return) ** (TRADING_DAYS_PER_YEAR / days) - 1 if days > 0 else 0
 
         # 最大回撤
         cummax = equity_df['total_equity'].cummax()
         drawdown = (equity_df['total_equity'] - cummax) / cummax
         max_drawdown = drawdown.min()
 
-        # 夏普比率 (假设无风险利率3%)
+        # 夏普比率
         returns = equity_df['total_equity'].pct_change().dropna()
         if len(returns) > 0 and returns.std() > 0:
-            sharpe_ratio = (returns.mean() * 252 - 0.03) / (returns.std() * np.sqrt(252))
+            sharpe_ratio = (returns.mean() * TRADING_DAYS_PER_YEAR - RISK_FREE_RATE) / (returns.std() * np.sqrt(TRADING_DAYS_PER_YEAR))
         else:
             sharpe_ratio = 0
 

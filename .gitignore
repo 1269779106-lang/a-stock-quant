@@ -22,10 +22,10 @@ build/
 .env.local
 
 # Data
-data/logs/
-data/cache/
-data/market/*.csv
-data/market/*.json
+/data/
+/backend/data/
+*.db
+*.sqlite3
 
 # OS
 .DS_Store

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Card, Input, Table, Tag, Row, Col, Typography, Tabs, Space, Statistic, Spin, message } from 'antd'
-import { SearchOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
+import { useState, useEffect } from 'react'
+import { Card, Input, Table, Tag, Row, Col, Typography, Tabs, Space, Statistic, Spin, message, Modal } from 'antd'
+import { SearchOutlined } from '@ant-design/icons'
 import { marketApi } from '../services/api'
 import wsService from '../services/websocket'
+import KlineChart from '../components/KlineChart'
 
 const { Title, Text } = Typography
 
@@ -24,7 +25,10 @@ const Market: React.FC = () => {
   const [stockList, setStockList] = useState<any[]>([])
   const [realtimeData, setRealtimeData] = useState<Map<string, StockData>>(new Map())
   const [loading, setLoading] = useState(false)
-  const [watchlist, setWatchlist] = useState<string[]>(['600519', '300750', '601318', '000858', '002594'])
+  const [watchlist] = useState<string[]>(['600519', '300750', '601318', '000858', '002594'])
+  const [klineData, setKlineData] = useState<any[]>([])
+  const [klineVisible, setKlineVisible] = useState(false)
+  const [selectedStock, setSelectedStock] = useState<string>('')
 
   // 加载股票列表
   useEffect(() => {
@@ -79,6 +83,26 @@ const Market: React.FC = () => {
     }
   }
 
+  const loadKlineData = async (stockCode: string) => {
+    setLoading(true)
+    try {
+      const res: any = await marketApi.getKlineData(stockCode, {
+        period: 'daily',
+        start_date: '2024-01-01',
+        end_date: '2024-12-31'
+      })
+      if (res.data) {
+        setKlineData(res.data)
+        setSelectedStock(stockCode)
+        setKlineVisible(true)
+      }
+    } catch (error) {
+      message.error('获取K线数据失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const columns = [
     {
       title: '代码',
@@ -110,7 +134,6 @@ const Market: React.FC = () => {
       render: (_: any, record: any) => {
         const data = realtimeData.get(record.code)
         if (!data) return <Text type="secondary">--</Text>
-        const color = data.pct_change >= 0 ? '#f5222d' : '#52c41a'
         return (
           <Tag color={data.pct_change >= 0 ? 'red' : 'green'}>
             {data.pct_change >= 0 ? '+' : ''}{data.pct_change?.toFixed(2)}%
@@ -163,6 +186,13 @@ const Market: React.FC = () => {
         if (!data) return <Text type="secondary">--</Text>
         return <Text>{(data.volume / 10000).toFixed(0)}万手</Text>
       },
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_: any, record: any) => (
+        <a onClick={() => loadKlineData(record.code)}>K线图</a>
+      ),
     },
   ]
 
@@ -250,6 +280,17 @@ const Market: React.FC = () => {
           },
         ]}
       />
+
+      {/* K线图弹窗 */}
+      <Modal
+        title={`${selectedStock} K线图`}
+        open={klineVisible}
+        onCancel={() => setKlineVisible(false)}
+        footer={null}
+        width={900}
+      >
+        <KlineChart data={klineData} width={850} height={500} />
+      </Modal>
     </div>
   )
 }

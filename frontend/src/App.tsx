@@ -1,12 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Layout } from 'antd'
 import MainLayout from './layouts/MainLayout'
 import Dashboard from './pages/Dashboard'
 import Market from './pages/Market'
 import Strategy from './pages/Strategy'
 import Backtest from './pages/Backtest'
-
-const { Content } = Layout
 
 function App() {
   return (

@@ -1,10 +1,10 @@
 """行情数据API"""
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
-from datetime import datetime, date
 
 from app.services.data.akshare_service import akshare_service
 from app.services.data.indicator_service import indicator_service
+from app.utils.validators import validate_stock_code, validate_date, validate_period, validate_adjust
 
 router = APIRouter()
 
@@ -12,6 +12,9 @@ router = APIRouter()
 @router.get("/market/stock/{stock_code}")
 async def get_stock_info(stock_code: str):
     """获取股票基本信息"""
+    if not validate_stock_code(stock_code):
+        raise HTTPException(status_code=400, detail="股票代码格式错误，应为6位数字")
+
     quote = akshare_service.get_realtime_quote(stock_code)
     return {
         "code": stock_code,
@@ -28,6 +31,19 @@ async def get_kline_data(
     adjust: str = Query("qfq", description="复权: qfq前复权/hfq后复权/空字符串不复权")
 ):
     """获取K线数据"""
+    # 验证输入
+    if not validate_stock_code(stock_code):
+        raise HTTPException(status_code=400, detail="股票代码格式错误，应为6位数字")
+
+    if not validate_period(period):
+        raise HTTPException(status_code=400, detail="无效的K线周期")
+
+    if not validate_date(start_date) or not validate_date(end_date):
+        raise HTTPException(status_code=400, detail="日期格式错误，应为YYYY-MM-DD")
+
+    if not validate_adjust(adjust):
+        raise HTTPException(status_code=400, detail="无效的复权类型")
+
     if period == "daily":
         df = akshare_service.get_daily_data(stock_code, start_date, end_date, adjust)
     else:
@@ -58,6 +74,9 @@ async def get_kline_data(
 @router.get("/market/realtime/{stock_code}")
 async def get_realtime_quote(stock_code: str):
     """获取实时行情"""
+    if not validate_stock_code(stock_code):
+        raise HTTPException(status_code=400, detail="股票代码格式错误，应为6位数字")
+
     quote = akshare_service.get_realtime_quote(stock_code)
     return {
         "code": stock_code,
@@ -71,6 +90,10 @@ async def get_stock_list(
     industry: Optional[str] = Query(None, description="行业板块")
 ):
     """获取股票列表"""
+    # 验证市场参数
+    if market and market not in ["sh", "sz", "bj"]:
+        raise HTTPException(status_code=400, detail="无效的市场参数，应为sh/sz/bj")
+
     df = akshare_service.get_stock_list(market)
 
     if df.empty:

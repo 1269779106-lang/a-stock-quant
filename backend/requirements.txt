@@ -4,14 +4,14 @@ uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 
 # 数据处理
-pandas==2.2.0
-numpy==1.26.3
-ta-lib==0.4.28
+pandas>=2.2.0
+numpy>=1.26.3
+pandas_ta>=0.4.67
 
 # A股数据源
-akshare==1.12.0
-tushare==1.4.2
-baostock==0.8.8
+akshare>=1.18.0
+tushare>=1.4.2
+baostock>=0.8.8
 
 # 数据库
 sqlalchemy==2.0.25
@@ -30,6 +30,6 @@ loguru==0.7.2
 httpx==0.26.0
 
 # 量化计算
-scipy==1.12.0
-statsmodels==0.14.1
-scikit-learn==1.4.0
+scipy>=1.14.0
+statsmodels>=0.14.3
+scikit-learn>=1.5.0

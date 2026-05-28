@@ -2,13 +2,35 @@
 import os
 import akshare as ak
 import pandas as pd
+import requests
 from datetime import datetime, date, timedelta
 from typing import Optional, List
 from loguru import logger
 
-# 数据缓存目录
-CACHE_DIR = "D:/a-stock-quant/data/cache"
+# 数据缓存目录 - 使用相对路径
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
+
+# 禁用代理的请求会话
+_session = requests.Session()
+_session.trust_env = False  # 不使用系统代理
+
+# 列名映射常量
+COLUMN_RENAME_MAP = {
+    "日期": "date",
+    "开盘": "open",
+    "收盘": "close",
+    "最高": "high",
+    "最低": "low",
+    "成交量": "volume",
+    "成交额": "amount",
+    "振幅": "amplitude",
+    "涨跌幅": "pct_change",
+    "涨跌额": "change",
+    "换手率": "turnover",
+    "股票代码": "code",
+    "时间": "datetime"
+}
 
 
 def get_cache_path(stock_code: str, data_type: str) -> str:
@@ -23,24 +45,10 @@ def load_cache(stock_code: str, data_type: str) -> Optional[pd.DataFrame]:
         try:
             df = pd.read_csv(cache_path)
             # 重命名列（如果是中文列名）
-            rename_map = {
-                "日期": "date",
-                "开盘": "open",
-                "收盘": "close",
-                "最高": "high",
-                "最低": "low",
-                "成交量": "volume",
-                "成交额": "amount",
-                "振幅": "amplitude",
-                "涨跌幅": "pct_change",
-                "涨跌额": "change",
-                "换手率": "turnover",
-                "股票代码": "code"
-            }
-            df = df.rename(columns=rename_map)
+            df = df.rename(columns=COLUMN_RENAME_MAP)
             return df
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"加载缓存失败 {cache_path}: {e}")
     return None
 
 
@@ -81,7 +89,7 @@ class AKShareService:
                     df = df[df["code"].str.startswith(("4", "8"))]
             return df
         except Exception as e:
-            logger.error(f"获取股票列表失败: {e}")
+            logger.error(f"获取股票列表失败: {e}", exc_info=True)
             return pd.DataFrame()
 
     def get_daily_data(
@@ -104,10 +112,6 @@ class AKShareService:
             DataFrame: 日线数据
         """
         try:
-            # 强制禁用代理
-            for key in ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']:
-                os.environ.pop(key, None)
-
             if not start_date:
                 start_date = (datetime.now() - timedelta(days=365)).strftime("%Y%m%d")
             else:
@@ -118,6 +122,27 @@ class AKShareService:
             else:
                 end_date = end_date.replace("-", "")
 
+            # 尝试使用腾讯接口（更稳定）
+            try:
+                market_prefix = "sz" if stock_code.startswith(("0", "3")) else "sh"
+                symbol = f"{market_prefix}{stock_code}"
+                df = ak.stock_zh_a_hist_tx(
+                    symbol=symbol,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                if not df.empty:
+                    # 腾讯接口返回的amount是成交量（手），需要重命名
+                    if 'volume' not in df.columns and 'amount' in df.columns:
+                        df = df.rename(columns={'amount': 'volume'})
+                        df['amount'] = df['volume'] * df['close'] * 100  # 估算成交额
+                    # 保存到缓存
+                    save_cache(stock_code, "daily", df)
+                    return df
+            except Exception as e:
+                logger.warning(f"腾讯接口失败 {stock_code}: {e}")
+
+            # 备选：使用东方财富接口
             df = ak.stock_zh_a_hist(
                 symbol=stock_code,
                 period="daily",
@@ -127,19 +152,7 @@ class AKShareService:
             )
 
             # 重命名列
-            df = df.rename(columns={
-                "日期": "date",
-                "开盘": "open",
-                "收盘": "close",
-                "最高": "high",
-                "最低": "low",
-                "成交量": "volume",
-                "成交额": "amount",
-                "振幅": "amplitude",
-                "涨跌幅": "pct_change",
-                "涨跌额": "change",
-                "换手率": "turnover"
-            })
+            df = df.rename(columns=COLUMN_RENAME_MAP)
 
             # 保存到缓存
             if not df.empty:
@@ -179,19 +192,12 @@ class AKShareService:
                 adjust=adjust
             )
 
-            df = df.rename(columns={
-                "时间": "datetime",
-                "开盘": "open",
-                "收盘": "close",
-                "最高": "high",
-                "最低": "low",
-                "成交量": "volume",
-                "成交额": "amount"
-            })
+            # 重命名列
+            df = df.rename(columns=COLUMN_RENAME_MAP)
 
             return df
         except Exception as e:
-            logger.error(f"获取分钟线数据失败 {stock_code}: {e}")
+            logger.error(f"获取分钟线数据失败 {stock_code}: {e}", exc_info=True)
             return pd.DataFrame()
 
     def get_realtime_quote(self, stock_code: str) -> dict:
